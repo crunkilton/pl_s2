@@ -1,0 +1,247 @@
+---
+title: 'Network Analysis of Pandemic Legacy Season 2: August'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r,include=FALSE}
+## Cody Crunkilton
+## PL S2 Network Model
+
+#install.packages("tidygraph")
+#install.packages("ggraph")
+#install.packages("viridisLite")
+
+## Packages
+library(tidyverse)
+library(tidygraph)
+library(igraph)
+library(ggraph)
+setwd("C:/Users/Cody/Dropbox/board games/r_stuff")
+
+# Processing ---------------------------------------------------------------
+
+edge_list_aug <- read.csv("pl_s2_edges_aug.csv",header=T)
+edge_list_aug <- rename(edge_list_aug,nodeA=ï..Node.A,nodeB=Node.B)
+nodes_aug <- read.csv("pl_s2_nodes_aug.csv",header=T)
+nodes_aug <- nodes_aug[1:31,]
+nodes_aug <- rename(nodes_aug,name=ï..nodes)
+
+nodes_aug
+
+g <- as_tbl_graph(edge_list_aug,directed=F)
+
+g_nodes <- g %>% activate(nodes) %>% 
+  merge(nodes_aug,by="name")
+
+g <- g %>% activate(nodes) %>% left_join(g_nodes)
+
+
+###
+i <- as.igraph(g)
+
+edge.attributes(i)
+
+## This works
+E(i)$port <- 0
+E(i)$port[E(i)[!inc(V(i)$port==0)]] <- 1 # takes edges between cities where cities both have ports
+E(i)$supply <- 0
+E(i)$supply[E(i)[!inc(V(i)$supply_center==0)]] <- 1 # makes cities connected by supply centers a certain edge type
+
+E(i)$port <- ifelse(E(i)$supply==1&E(i)$port==1,0,E(i)$port)
+
+
+E(i)$route_type <- NA
+E(i)$route_type <- ifelse(E(i)$port==1,"port",
+                    ifelse(E(i)$supply==1,"supply_center",
+                           "land"))
+
+g <- as_tbl_graph(i)
+
+g <- g %>% activate(nodes) %>% mutate(fallen=ifelse(dead==1,"Fallen","Surviving"))
+
+g
+
+##graph
+#99d8c9
+edge_colors <- c("#fc9272","turquoise","slateblue1")
+#colors <- c("#bdbdbd","cyan3","green","yellow")
+colors <- c("grey53","cyan3","green","yellow1")
+```
+
+**Why Networks?**
+
+Here is an alternative visualization of the world, circa August. Each dot (node) is a city and the connections between them (edges) represent either land, sea, or supply center teleportation routes. This is useful for a couple of reasons: first, it gives us a different way to look at the map which could produce new insights, and second, organizing it as a network lets us use more advanced measures to answer questions such as "where should we build a supply center?" or "where should we drop off cubes before the game begins?"
+
+
+```{r, fig.width=12.5,fig.height=7,echo=FALSE}
+set.seed(2)
+ggraph(g,layout="nicely")+
+  geom_edge_link(aes(color=route_type),edge_width=1)+
+  scale_edge_color_manual(values=edge_colors)+
+  geom_node_point(aes(color=region,shape=fallen,stroke=4),size=7)+
+  geom_node_text(nudge_x=.1,nudge_y=-.1,show.legend=F,size=3,aes(label=name))+
+  scale_color_manual(values=colors)+
+  scale_shape_manual(values=c(4,16))+
+  theme_graph(background="gainsboro",base_family = "sans")+
+  labs(title="Pandemic Legacy Season 2: August")
+```
+
+Looking at the figure, we notice a few things. First, there is a dense network in the center of all of our havens and supply centers which we can teleport between. Anything here is relatively easy to deal with as it is close to everything else. Similarly, there are several cities which appear fairly out of the way. Most of the Western United States is far away (and dead), Moscow can be difficult to reach, and our new cities, Johannesburg and Khartoum, are a bit further out than most others. 
+
+
+```{r include=FALSE}
+###   TO DO: SUPPLY CENTER TELEPORT- FIX THOSE
+
+
+# Closeness ---------------------------------------------------------------
+
+# which one is in the "middle"
+
+## Closeness: how far away are things from other things? lower number=harder to get to. 
+g <- g %>% activate(nodes) %>% mutate(closeness=closeness(g))
+
+
+df <- as.data.frame(g %>% activate(nodes)) # making a dataframe for ggplot2
+
+df <- transform(df, name=reorder(name, -closeness) ) 
+
+colors_barplot <- c("black","blue","lightgreen","yellow")
+
+ggplot(df,aes(x=factor(name),y=closeness,fill=region))+
+  geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_fill_manual(values=colors)
+```
+
+
+  
+```{r, include=FALSE, echo=FALSE}
+# betweenness -------------------------------------------------------------
+
+# which ones are most "on the way" to other ones. Where we want to drop off supplies!
+
+estimate_betweenness(g,directed=F,cutoff=100) %>% sort()
+
+g %>% activate(nodes) %>% betweenness
+
+## Betweenenss
+
+g <- g %>% activate(nodes) %>% mutate(betweenness=estimate_betweenness(g,directed=F,cutoff=1000))
+
+df <- as.data.frame(g %>% activate(nodes)) # making a dataframe for ggplot2
+
+df <- transform(df, name=reorder(name, -betweenness) ) 
+```
+
+This information is useful, but it would be nice to ask some questions of the network. If this were normal Pandemic (or Legacy Season 1), the concept of "degree" - or how many "spokes" a city has - may be helpful, as that reflects how dangerous an outbreak could be. However, we have rarely (if ever) seen an outbreak occur in Season 2, so I think this may be less helpful. 
+
+Another item of interest could be the "betweenness" of nodes. Betweenness measures how many shortest paths from one node to another in a network pass through a certain location. Essentially, this measures how "on the way" a city is. Nodes with higher betweenness are more likely to be "on the way" to other nodes, and nodes with low betweenness will rarely need to be traversed during a game (unless we are concerned about an infection at that city, of course). 
+
+Below is a bar plot of the betweeneness scores of each city:
+
+```{r,echo=FALSE}
+
+ggplot(df,aes(x=factor(name),y=betweenness,fill=region))+
+  geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))+
+  scale_fill_manual(values=colors)+
+  labs(title="Betweenness",x="City",y="Betweenness Score")
+
+
+
+```
+
+What does this mean? The cities with higher bars are places we are more likely to pass through on the way to other places. So, for example, if we needed to drop off cubes in some location, it would be more likely that we would pass through London on our route than pass through New Haven. Some of this is obvious- Moscow clearly is not on the way to anything - but some is less obvious, such as Atlantis not being as central as Cairo. 
+
+This can guide us on where we drop off cubes at the start of the game: places with higher betweenness should get more cubes, as we will be more likely to pass through them (and then pick up their cubes as a free action).
+
+One caveat: This doesn't take into account *possible* connections to cities - so, for example, we may want to drop off more in Baghdad if we anticipate building a connection to a new city from there. 
+
+
+```{r include=FALSE}
+# removing dead nodes -----------------------------------------------------
+
+g_l <- g %>% activate(nodes) %>% 
+  filter(fallen=="Surviving")
+
+g_l
+```
+
+
+\*\*\*
+
+
+One concern you may have is that there are fallen cities we would be very unlikely to want to visit during a game (sans searching, I can't think of a reason we would want to go to Denver, for example). Below is an alternative network, only including cities with population greater than zero. 
+
+
+```{r, fig.width=12.5,fig.height=7,echo=FALSE}
+### The Graph of only living nodes
+
+set.seed(1111)
+
+ggraph(g_l,layout="nicely")+
+  geom_edge_link(aes(color=route_type),edge_width=1)+
+  scale_edge_color_manual(values=edge_colors)+
+  geom_node_point(aes(color=region,stroke=4),size=7)+
+  geom_node_text(nudge_x=.1,nudge_y=-.1,show.legend=F,size=3,aes(label=name))+
+  scale_color_manual(values=colors)+
+  theme_graph(background="gainsboro",base_family = "sans")+
+  labs(title="August Network, Only Living Cities")
+
+### This looks different: Moscow, Khartoum/Johannesburg, and San Francisco are out in the boonies. 
+```
+
+This looks a bit different from the previous network: now the Western US looks much less scary (and even less so now that we have moved so many Western US cards into the Box of Doom), and only Moscow and San Francisico seem significantly out of our way. From a supply center or haven, we can reach any city on the board in three moves save for Moscow and San Francisco which take four.  
+
+
+```{r, include=FALSE}
+
+## to do: make edge colors
+
+## Betweenness of only living nodes
+estimate_betweenness(g_l,directed=F,cutoff=100) %>% sort
+
+g_l <- g_l %>% activate(nodes) %>% mutate(betweenness=estimate_betweenness(g_l,directed=F,cutoff=1000))
+
+df <- as.data.frame(g_l %>% activate(nodes)) # making a dataframe for ggplot2
+
+df <- transform(df, name=reorder(name, -betweenness) ) 
+
+
+```
+
+```{r, echo=FALSE}
+
+
+ggplot(df,aes(x=factor(name),y=betweenness,fill=region))+
+  geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_fill_manual(values=colors)+
+  labs(title="Betweenness: Living Cities Only",x="City",y="Betweenness Score")
+
+
+```
+
+Looking at the betweenness of this graph, several surprising changes are made. Now that we have consigned much of the United States to the conquest of the Hollow Men, New Hawaii has changed from being the most "on the way" city to not being on the way to anywhere. Similarly, Old Hawaii has increased in importance, as have New York and Lagos. 
+
+What does this mean? For starters, **we should not be placing any cubes on New Hawaii unless someone starts the game there and will pick them up immediately** - there is no possible scenario where we are traveling from one city to another and the shortest path between them includes New Hawaii. Of the black cities, we should of course place cubes where we are worried outbreaks could happen, but if we have extra we should store them in Cairo. Generally, we want to be dropping off cubes near the "middle" of our network, as we are more likely to be able to pick them up on our way elsewhere. 
+
+
+
+
+I also looked at some other measures of centrality and tried some different graph layouts, but these are what I think were the most useful bits of information. For next time I am considering adding some more things, such as
+
+-Rats: they probably will be important sometime - might be worth taking note of now. 
+
+-Weighting Betweenness by number of cards: Moscow only has two infection cards whereas Sao Paolo has five (I think). The betweeneess calculation treats them equivalently, but if I could find a way to weight the cities which are likelier to be infected more heavily that could give us a better idea of where to drop off cubes. 
+
+-City Size: I could size each of the nodes according to the size of the city, which could give us some information on how likely a city would be to collapsing
+
+-Including possible connections: There are a lot of unconnected cities out there. If we connect to more of them we may have a much different looking network. 
+
+

@@ -1,0 +1,39 @@
+﻿nodes,region,size,dead,supply_center,port,radio_tower,rats
+Tripoli,black,,0,0,1,0,1
+Istanbul,black,,1,0,1,0,0
+Moscow,black,,0,0,0,0,0
+Cairo,black,,0,1,1,0,0
+Baghdad,black,,0,0,0,0,1
+Mexico City,yellow,,1,0,0,0,1
+Los Angeles,yellow,,1,0,1,0,1
+Denver,blue,,1,0,0,0,1
+Chicago,blue,,0,0,0,0,1
+San Francisco,blue,,0,0,1,0,0
+Atlanta,blue,,1,0,0,0,1
+Washington,blue,,0,0,1,0,0
+New York,blue,,0,0,1,0,0
+St. Petersburg,blue,,1,0,1,0,1
+Frankfurt,blue,,0,0,0,0,0
+Paris,blue,,0,0,0,0,0
+London,blue,,0,1,1,1,0
+Johannesburg,blue,,0,0,0,0,0
+New Haven,haven,,0,0,1,0,0
+Atlantis,haven,,0,0,1,0,0
+Old Hawaii,haven,,0,0,1,0,0
+New Hawaii,haven,,0,0,1,0,0
+Jacksonville,yellow,,1,0,1,0,1
+Santiago,yellow,,0,0,0,0,1
+Buenos Aires,yellow,,1,0,1,0,1
+Lima,yellow,,0,0,1,0,0
+Bogota,yellow,,0,0,0,0,0
+Sao Paolo,yellow,,0,1,1,1,0
+Lagos,yellow,,0,1,1,0,0
+Kinshasa,yellow,,0,0,0,0,1
+Khartoum,yellow,,0,0,0,0,1
+Dar Es Salaam,yellow,,,,,,1
+Antananarivo,black,,,,,,0
+Riyadh,black,,,,,,0
+Tehran,black,,,,,,0
+New Mumbai,black,,,,,,1
+Kolkata,black,,,,,,1
+Delhi,black,,,,,,1

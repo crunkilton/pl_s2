@@ -1,0 +1,62 @@
+﻿Node A,Node B
+Washington,New York
+Washington,Jacksonville
+New York,Jacksonville
+New York,Old Hawaii
+Jacksonville,New Hawaii
+Atlantis,New Hawaii
+Atlantis,Old Hawaii
+Sao Paolo,New Hawaii
+Sao Paolo,Lagos
+Lagos,New Hawaii
+Old Hawaii,London
+Atlantis,Tripoli
+Atlantis,Istanbul
+Tripoli,Cairo
+Istanbul,Cairo
+New York,Chicago
+Jacksonville,Atlanta
+Chicago,San Francisco
+San Francisco,Los Angeles
+Mexico City,Los Angeles
+Denver,Los Angeles
+Denver,Atlanta
+New Haven,Lima
+Lima,Bogota
+Lima,Sao Paolo
+Sao Paolo,Santiago
+Sao Paolo,Buenos Aires
+London,Paris
+Paris,Frankfurt
+St. Petersburg,Frankfurt
+Moscow,Frankfurt
+New Haven,Old Hawaii
+New Haven,New Hawaii
+New Haven,Atlantis
+New Haven,Lagos
+New Haven,Cairo
+New Haven,Sao Paolo
+Lagos,Old Hawaii
+Lagos,New Hawaii
+Lagos,Atlantis
+Lagos,Cairo
+Lagos,Sao Paolo
+Cairo,Old Hawaii
+Cairo,New Hawaii
+Cairo,Atlantis
+Cairo,Sao Paolo
+Sao Paolo,Old Hawaii
+Sao Paolo,New Hawaii
+Sao Paolo,Atlantis
+London,Old Hawaii
+London,New Hawaii
+London,Atlantis
+London,Lagos
+London,Cairo
+London,Sao Paolo
+London,New Haven
+Atlanta,Los Angeles
+Baghdad,Cairo
+Kinshasa,Lagos
+Khartoum,Kinshasa
+Johannesburg,Kinshasa
