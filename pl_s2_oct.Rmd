@@ -1,0 +1,346 @@
+---
+title: 'Network Analysis of Pandemic Legacy Season 2: October'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,include=FALSE}
+## Cody Crunkilton
+## PL S2 Network Model
+
+#install.packages("tidygraph")
+#install.packages("ggraph")
+#install.packages("viridisLite")
+
+## Packages
+library(tidyverse)
+library(tidygraph)
+library(igraph)
+library(ggraph)
+setwd("C:/Users/Cody/Dropbox/board games/r_stuff")
+
+
+edge_list_oct <- read.csv("pl_s2_edges_oct.csv",header=T)
+edge_list_oct <- rename(edge_list_oct,nodeA=ï..Node.A,nodeB=Node.B)
+nodes_oct <- read.csv("pl_s2_nodes_oct.csv",header=T)
+nodes_oct <- rename(nodes_oct,name=ï..nodes)
+
+nodes_oct
+
+g <- as_tbl_graph(edge_list_oct,directed=F)
+
+g_nodes <- g %>% activate(nodes) %>% 
+  merge(nodes_oct,by="name")
+
+g <- g %>% activate(nodes) %>% left_join(g_nodes)
+
+
+###
+i <- as.igraph(g)
+
+edge.attributes(i)
+
+## This works
+E(i)$port <- 0
+E(i)$port[E(i)[!inc(V(i)$port==0)]] <- 1 # takes edges between cities where cities both have ports
+E(i)$supply <- 0
+E(i)$supply[E(i)[!inc(V(i)$supply_center==0)]] <- 1 # makes cities connected by supply centers a certain edge type
+E(i)$supply[E(i)[!inc(V(i)$supply_center==0)]] <- 1 # makes cities connected by supply centers a certain edge type
+
+
+E(i)$route_type <- NA
+
+E(i)$route_type <- ifelse(E(i)$port==1&E(i)$supply==0,"port",
+                          ifelse(E(i)$supply==1,"supply_center","land"))
+
+
+g <- as_tbl_graph(i)
+
+g_oct <- g %>% activate(nodes) %>% mutate(fallen=ifelse(dead==1,"Fallen","Surviving"))
+
+##graph
+#99d8c9
+edge_colors <- c("#fc9272","turquoise","slateblue1")
+#colors <- c("#bdbdbd","cyan3","green","yellow")
+colors <- c("grey53","cyan3","green","red","yellow1")
+
+```
+
+```{r,include=F}
+# Processing Aug ---------------------------------------------------------------
+
+edge_list_aug <- read.csv("pl_s2_edges_aug.csv",header=T)
+edge_list_aug <- rename(edge_list_aug,nodeA=ï..Node.A,nodeB=Node.B)
+nodes_aug <- read.csv("pl_s2_nodes_aug.csv",header=T)
+nodes_aug <- nodes_aug[1:31,]
+nodes_aug <- rename(nodes_aug,name=ï..nodes)
+
+nodes_aug
+
+g <- as_tbl_graph(edge_list_aug,directed=F)
+
+g_nodes <- g %>% activate(nodes) %>% 
+  merge(nodes_aug,by="name")
+
+g <- g %>% activate(nodes) %>% left_join(g_nodes)
+
+
+###
+i <- as.igraph(g)
+
+edge.attributes(i)
+
+## This works
+E(i)$port <- 0
+E(i)$port[E(i)[!inc(V(i)$port==0)]] <- 1 # takes edges between cities where cities both have ports
+E(i)$supply <- 0
+E(i)$supply[E(i)[!inc(V(i)$supply_center==0)]] <- 1 # makes cities connected by supply centers a certain edge type
+
+E(i)$port <- ifelse(E(i)$supply==1&E(i)$port==1,0,E(i)$port)
+
+
+
+E(i)$route_type <- NA
+E(i)$route_type <- ifelse(E(i)$port==1,"port","land")
+E(i)$route_type <- ifelse(E(i)$supply==1,"supply_center",E(i)$route_type)
+                            
+
+g_aug <- as_tbl_graph(i)
+
+g_aug <- g_aug %>% activate(nodes) %>% mutate(fallen=ifelse(dead==1,"Fallen","Surviving"))
+
+g
+
+##graph
+#99d8c9
+edge_colors <- c("#fc9272","turquoise","slateblue1")
+#colors <- c("#bdbdbd","cyan3","green","yellow")
+colors_aug <- c("grey53","cyan3","green","yellow1")
+
+```
+
+**The Network**
+
+```{r, fig.width=12.5,fig.height=7,echo=FALSE}
+set.seed(22)
+ggraph(g_oct,layout="nicely")+
+  geom_edge_link(aes(color=route_type),edge_width=1)+
+  scale_edge_color_manual(values=edge_colors)+
+  geom_node_point(aes(color=region,shape=fallen,stroke=4),size=7)+
+  geom_node_text(nudge_x=.1,nudge_y=-.1,show.legend=F,size=3,aes(label=name))+
+  scale_color_manual(values=colors)+
+  scale_shape_manual(values=c(4,16))+
+  theme_graph(background="gainsboro",base_family = "sans")+
+  labs(title="Pandemic Legacy Season 2: October")
+```
+
+There are a couple differences from last week. First, we have connected our first red city! Additionally, with the New Haven-San Francisco sea route, our network is now much better connected--every living city is within two steps of a haven.
+
+
+```{r include=FALSE}
+## not included!!
+
+# Closeness ---------------------------------------------------------------
+
+# which one is in the "middle"
+
+## Closeness: how far away are things from other things? lower number=harder to get to. 
+g <- g %>% activate(nodes) %>% mutate(closeness=closeness(g))
+
+
+df <- as.data.frame(g %>% activate(nodes)) # making a dataframe for ggplot2
+
+df <- transform(df, name=reorder(name, -closeness) ) 
+
+colors_barplot <- c("black","blue","lightgreen","yellow","red")
+
+ggplot(df,aes(x=factor(name),y=closeness,fill=region))+
+  geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_fill_manual(values=colors)
+```
+
+
+  
+```{r, include=FALSE, echo=FALSE}
+# betweenness -------------------------------------------------------------
+# between: August -------------------------------------------------------------
+
+g_aug <- g_aug %>% activate(nodes) %>% mutate(betweenness=estimate_betweenness(g_aug,directed=F,cutoff=1000))
+
+df_aug <- as.data.frame(g_aug %>% activate(nodes)) # making a dataframe for ggplot2
+
+df_aug <- transform(df_aug, name=reorder(name, -betweenness) ) 
+
+df_aug$pct_btwn <- df_aug$betweenness/sum(df_aug$betweenness)*100
+
+# between: Oct -------------------------------------------------------------
+
+g <- g_oct %>% activate(nodes) %>% mutate(betweenness=estimate_betweenness(g_oct,directed=F,cutoff=1000))
+
+df_oct <- as.data.frame(g %>% activate(nodes)) # making a dataframe for ggplot2
+
+df_oct <- transform(df_oct, name=reorder(name, -betweenness) ) 
+
+df_oct$pct_btwn <- df_oct$betweenness/sum(df_oct$betweenness)*100
+
+ggplot(df_oct,aes(x=factor(name),y=pct_btwn,fill=region))+
+  geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_fill_manual(values=colors)+
+  labs(title="Betweenness: October",x="City",y="Betweenness Score (%)")
+
+
+# between: all ------------------------------------------------------------
+
+df_merged <- merge(df_oct,df_aug,by="name",all.x=T)
+df_merged <- rename(df_merged,region=region.x)
+
+df_merged$change <- with(df_merged,pct_btwn.x-pct_btwn.y)
+df_merged <- df_merged[df_merged$change!=0|df_merged$change!=NA,]
+df_merged_all <- transform(df_merged, name=reorder(name, -change) ) 
+
+
+ggplot(df_merged_all,aes(x=factor(name),y=change,fill=region))+
+  geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_fill_manual(values=colors_aug)+
+  labs(title="Betweenness: Change from August to October (as %)",x="City",y="Betweenness Score (%)")
+```
+
+
+**Betweenness**
+
+Now let's see if the betweeness has changed. As a reminder, betweenness measures how many shortest paths from one node to another in a network pass through a certain location (i.e., how "on the way" a city is). Nodes with higher betweenness are more likely to be "on the way" to other nodes, and nodes with low betweenness will rarely need to be traversed during a game (unless we are concerned about an infection at that city, of course). 
+
+Below is a bar plot of the betweeneness scores of each city:
+
+```{r,echo=FALSE}
+
+ggplot(df_oct,aes(x=factor(name),y=betweenness,fill=region))+
+  geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))+
+  scale_fill_manual(values=colors)+
+  labs(title="Betweenness",x="City",y="Betweenness Score")
+
+
+
+```
+
+The cities with higher bars are places we are more likely to pass through on the way to other places. So, if we needed to drop off cubes in some location, it would be more likely that we would pass through Tehran on our route than pass through New Haven.
+
+This can guide us on where we drop off cubes at the start of the game: places with higher betweenness should get more cubes, as we will be more likely to pass through them (and then pick up their cubes as a free action).
+
+Again, this doesn't take into account *possible* connections to cities - so, for example, we may want to drop off more in Jakarta if we anticipate building our red network from there.
+
+
+```{r include=FALSE}
+# removing dead nodes -----------------------------------------------------
+
+g_l_oct <- g %>% activate(nodes) %>% 
+  filter(fallen=="Surviving")
+
+g_l_aug <- g_aug %>% activate(nodes) %>% 
+  filter(fallen=="Surviving")
+
+```
+
+
+\*\*\*
+
+
+**What if we only care about cities which haven't fallen?**
+
+```{r, fig.width=12.5,fig.height=7,echo=FALSE}
+### The Graph of only living nodes
+
+set.seed(1111)
+
+ggraph(g_l_oct,layout="nicely")+
+  geom_edge_link(aes(color=route_type),edge_width=1)+
+  scale_edge_color_manual(values=edge_colors)+
+  geom_node_point(aes(color=region,stroke=4),size=7)+
+  geom_node_text(nudge_x=.1,nudge_y=-.1,show.legend=F,size=3,aes(label=name))+
+  scale_color_manual(values=colors)+
+  theme_graph(background="gainsboro",base_family = "sans")+
+    labs(title="October: Living Cities Only")
+
+### This looks different: Moscow, Khartoum/Johannesburg, and San Francisco are out in the boonies. 
+```
+
+
+```{r, include=FALSE}
+
+## Betweenness of only living nodes
+
+##October
+g_l_oct <- g_l_oct %>% activate(nodes) %>% mutate(betweenness=estimate_betweenness(g_l_oct,directed=F,cutoff=1000))
+df <- as.data.frame(g_l_oct %>% activate(nodes)) # making a dataframe for ggplot2
+df_l_oct <- transform(df, name=reorder(name, -betweenness) ) 
+df_l_oct$pct_btwn <- df_l_oct$betweenness/sum(df_l_oct$betweenness)*100
+
+##August
+g_l_aug <- g_l_aug %>% activate(nodes) %>% mutate(betweenness=estimate_betweenness(g_l_aug,directed=F,cutoff=1000))
+df <- as.data.frame(g_l_aug %>% activate(nodes)) # making a dataframe for ggplot2
+df_l_aug <- transform(df, name=reorder(name, -betweenness) )
+df_l_aug$pct_btwn <- df_l_aug$betweenness/sum(df_l_aug$betweenness)*100
+
+
+
+```
+
+```{r, echo=FALSE, messages=FALSE,warning=FALSE}
+
+
+ggplot(df_l_oct,aes(x=factor(name),y=betweenness,fill=region))+
+  geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_fill_manual(values=colors)+
+  labs(title="Betweenness: Living Cities Only",x="City",y="Betweenness Score")
+
+
+```
+
+Here, it seems like Tehran becomes even more important relative to other cities. We should drop more cubes off there!
+
+We still shouldn't be putting cubes on New Hawaii unless someone will pick them up immediately.
+
+**How has betweeness changed since August?**
+
+```{r echo=F, warning=F}
+### All
+df_merged <- merge(df_oct,df_aug,by="name",all.x=T)
+df_merged <- rename(df_merged,region=region.x)
+
+df_merged$change <- with(df_merged,pct_btwn.x-pct_btwn.y)
+df_merged <- df_merged[df_merged$change!=0|df_merged$change!=NA,]
+df_merged_all <- transform(df_merged, name=reorder(name, -change) ) 
+
+### only living
+df_merged <- merge(df_l_oct,df_l_aug,by="name",all.x=T)
+df_merged <- rename(df_merged,region=region.x)
+
+df_merged$change <- with(df_merged,pct_btwn.x-pct_btwn.y)
+df_merged <- df_merged[df_merged$change!=0|df_merged$change!=NA,]
+df_merged_l <- transform(df_merged, name=reorder(name, -change) ) 
+
+ggplot(df_merged_all,aes(x=factor(name),y=change,fill=region))+
+  geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_fill_manual(values=colors_aug)+
+  labs(title="Betweenness: % Change from August to October (all cities)",x="City",y="Betweenness Score (%)")
+
+ggplot(df_merged_l,aes(x=factor(name),y=change,fill=region))+
+  geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_fill_manual(values=colors_aug)+
+  labs(title="Betweenness: % Change from August to October (living cities)",x="City",y="Betweenness Score (%)")
+```
+
+The biggest positive changes in betweenness seem to have ocurred in New Haven and San Francisco, which would make sense with the new connection there. Paris and London became much less "on the way", as the supply center in Tehran obviated much of the need to travel through them. 
+
